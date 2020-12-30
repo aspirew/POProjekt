@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Dec 29, 2020 at 06:36 PM
+-- Generation Time: Dec 30, 2020 at 07:28 PM
 -- Server version: 10.4.17-MariaDB
 -- PHP Version: 8.0.0
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `Egot`
+-- Database: `egot`
 --
 
 -- --------------------------------------------------------
@@ -97,8 +97,8 @@ CREATE TABLE `Odznaka` (
 
 INSERT INTO `Odznaka` (`ID`, `Stopien`, `Pracownik_Referatu_Weryfikacyjnego`, `Data_przyznania`, `Punkty_zdobyte`, `Turysta`, `Zdobyta`) VALUES
 (1, 4, 1, '2021-01-07', 111, 1, 1),
-(2, 1, 1, '2021-01-18', 131, 1, 1),
-(3, 2, NULL, NULL, NULL, 1, 0),
+(2, 1, 1, '2021-01-18', 132, 1, 1),
+(3, 2, NULL, NULL, 14, 1, 0),
 (4, 4, NULL, NULL, NULL, 3, 0),
 (5, 4, NULL, NULL, NULL, 4, 0);
 
@@ -191,8 +191,9 @@ CREATE TABLE `Przejscie` (
 --
 
 INSERT INTO `Przejscie` (`ID`, `Nazwa`, `PunktPoczatkowy`, `Odznaka`, `TurystaPlanujacy`, `CzyPrzemierzyl`, `Data_rozpoczecia`, `Data_zakonczenia`, `Suma_punktow`) VALUES
-(1, 'testowePrzejscie', 1, NULL, 1, 1, '2021-01-01', '2021-01-07', 111),
-(2, 'droogiePrzejscie', 1, NULL, 1, 1, '2021-01-08', '2021-01-16', 131);
+(1, 'testowePrzejscie', 1, 1, 1, 1, '2021-01-01', '2021-01-07', 133),
+(2, 'droogiePrzejscie', 1, 2, 1, 1, '2021-01-08', '2021-01-16', 132),
+(3, 'Trzecie', 1, 3, 1, 1, NULL, NULL, 14);
 
 -- --------------------------------------------------------
 
@@ -229,7 +230,83 @@ INSERT INTO `Przejscie_Odcinka` (`ID`, `Odcinek`, `PrzodownikZatwierdzajacy`, `P
 (12, 6, 1, 2, 1, 1, '2021-01-12'),
 (13, 4, 1, 2, 1, 1, '2021-01-13'),
 (14, 1, 1, 2, 1, 1, '2021-01-14'),
-(15, 21, 1, 2, 1, 1, '2021-01-16');
+(15, 21, 1, 2, 1, 1, '2021-01-16'),
+(16, 10, 1, 1, 1, 0, '2021-01-07'),
+(17, 10, 1, 1, 1, 0, '2021-01-07'),
+(19, 1, 1, 3, 1, 0, '2021-01-30');
+
+--
+-- Triggers `Przejscie_Odcinka`
+--
+DELIMITER $$
+CREATE TRIGGER `poprawne_sumy_punktow` AFTER UPDATE ON `Przejscie_Odcinka` FOR EACH ROW IF NEW.Zatwierdzone <> OLD.Zatwierdzone THEN
+		UPDATE Odznaka SET Punkty_zdobyte=
+    (
+        SELECT SUM(PDnia.ZdobytePunktyDanegoDnia)
+        FROM
+        (
+            SELECT
+                IF(SUM(YEET.Punkty_zdobyte)>50, 50, SUM(YEET.Punkty_zdobyte)) ZdobytePunktyDanegoDnia
+            FROM
+                (
+                    SELECT MIN(Przejscie_Odcinka.Data_przejscia) AS data_przejscia,
+                        MIN(IF(Przejscie_Odcinka.Od_konca, Odcinek.PunktacjaOdKonca, Odcinek.Punktacja)) AS Punkty_zdobyte
+                    FROM Odznaka
+                        JOIN Przejscie ON Odznaka.ID=Przejscie.Odznaka
+                        JOIN Przejscie_Odcinka ON Przejscie_Odcinka.Przejscie=Przejscie.ID
+                        JOIN Odcinek ON Odcinek.ID=Przejscie_Odcinka.Odcinek
+                    WHERE Przejscie_Odcinka.Zatwierdzone=true
+                        AND Odznaka.ID=(
+                                          SELECT Przejscie.Odznaka
+                                    			FROM Przejscie JOIN Przejscie_Odcinka ON Przejscie_Odcinka.Przejscie = Przejscie.ID
+                                    			WHERE Przejscie_Odcinka.ID = NEW.ID
+                                  			)
+                    GROUP BY Przejscie_Odcinka.Odcinek, Przejscie_Odcinka.Od_konca
+                ) YEET
+            GROUP BY YEET.data_przejscia
+        ) PDnia
+    )
+    	WHERE Odznaka.ID=(
+                          SELECT Przejscie.Odznaka
+                          FROM Przejscie JOIN Przejscie_Odcinka ON Przejscie_Odcinka.Przejscie = Przejscie.ID
+                          WHERE Przejscie_Odcinka.ID = NEW.ID
+                       );
+    END IF
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `update_suma_punktow_delete` AFTER DELETE ON `Przejscie_Odcinka` FOR EACH ROW UPDATE Przejscie SET Suma_punktow=(SELECT IFNULL(SUM(YEET.punkty_przyznane),0) suma_punktow
+    FROM
+    (
+        SELECT IF(Przejscie_Odcinka.Od_konca, Odcinek.PunktacjaOdKonca, Odcinek.Punktacja) punkty_przyznane
+        FROM Przejscie_Odcinka JOIN Odcinek ON Przejscie_Odcinka.Odcinek=Odcinek.ID
+        WHERE Przejscie_Odcinka.Przejscie=OLD.Przejscie
+    ) YEET)
+    WHERE Przejscie.ID=OLD.Przejscie
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `update_suma_punktow_insert` AFTER INSERT ON `Przejscie_Odcinka` FOR EACH ROW UPDATE Przejscie SET Suma_punktow=(SELECT SUM(YEET.punkty_przyznane) suma_punktow
+    FROM
+    (
+        SELECT IF(Przejscie_Odcinka.Od_konca, Odcinek.PunktacjaOdKonca, Odcinek.Punktacja) punkty_przyznane
+        FROM Przejscie_Odcinka JOIN Odcinek ON Przejscie_Odcinka.Odcinek=Odcinek.ID
+        WHERE Przejscie_Odcinka.Przejscie=NEW.Przejscie
+    ) YEET)
+    WHERE Przejscie.ID=NEW.Przejscie
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `update_suma_punktow_update` AFTER UPDATE ON `Przejscie_Odcinka` FOR EACH ROW UPDATE Przejscie SET Suma_punktow=(SELECT SUM(YEET.punkty_przyznane) suma_punktow
+    FROM
+    (
+        SELECT IF(Przejscie_Odcinka.Od_konca, Odcinek.PunktacjaOdKonca, Odcinek.Punktacja) punkty_przyznane
+        FROM Przejscie_Odcinka JOIN Odcinek ON Przejscie_Odcinka.Odcinek=Odcinek.ID
+        WHERE Przejscie_Odcinka.Przejscie=NEW.Przejscie
+    ) YEET)
+    WHERE Przejscie.ID=NEW.Przejscie
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -531,13 +608,13 @@ ALTER TABLE `Pracownik_Referatu_Weryfikacyjnego`
 -- AUTO_INCREMENT for table `Przejscie`
 --
 ALTER TABLE `Przejscie`
-  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `Przejscie_Odcinka`
 --
 ALTER TABLE `Przejscie_Odcinka`
-  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT for table `Przodownik`
