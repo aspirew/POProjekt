@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Jan 02, 2021 at 04:57 PM
+-- Generation Time: Jan 02, 2021 at 09:58 PM
 -- Server version: 10.4.17-MariaDB
 -- PHP Version: 8.0.0
 
@@ -73,8 +73,7 @@ INSERT INTO `Odcinek` (`ID`, `Nazwa`, `PunktPoczatkowy`, `PunktKoncowy`, `Teren`
 (18, 'LM', 12, 13, 1, 25, 12, 12),
 (19, 'MK', 13, 11, 1, 26, 13, 14),
 (20, 'LN', 12, 14, 1, 27, 13, 14),
-(21, 'NA', 14, 1, 1, 28, 10, 12),
-(23, 'JP2GMD', 1, 14, 1, 2137, 21, 37);
+(21, 'NA', 14, 1, 1, 28, 10, 12);
 
 --
 -- Triggers `Odcinek`
@@ -228,7 +227,8 @@ CREATE TABLE `Przejscie` (
 INSERT INTO `Przejscie` (`ID`, `Nazwa`, `PunktPoczatkowy`, `Odznaka`, `TurystaPlanujacy`, `CzyPrzemierzyl`, `Data_rozpoczecia`, `Data_zakonczenia`, `Suma_punktow`) VALUES
 (1, 'testowePrzejscie', 1, 1, 1, 1, '2021-01-01', '2021-01-07', 133),
 (2, 'droogiePrzejscie', 1, 2, 1, 1, '2021-01-08', '2021-01-16', 132),
-(3, 'Trzecie', 1, 3, 1, 1, NULL, NULL, 35);
+(3, 'Trzecie', 1, 3, 1, 1, NULL, NULL, 14),
+(18, 'TrasaRobionaZGUI', 6, 3, 1, 0, NULL, NULL, 62);
 
 -- --------------------------------------------------------
 
@@ -269,7 +269,10 @@ INSERT INTO `Przejscie_Odcinka` (`ID`, `Odcinek`, `PrzodownikZatwierdzajacy`, `P
 (16, 10, 1, 1, 1, 0, '2021-01-07'),
 (17, 10, 1, 1, 1, 0, '2021-01-07'),
 (19, 1, 1, 3, 1, 0, '2021-01-30'),
-(20, 23, NULL, 3, 0, 0, '2021-01-21');
+(42, 9, NULL, 18, 0, 1, NULL),
+(43, 6, NULL, 18, 0, 0, NULL),
+(44, 7, NULL, 18, 0, 0, NULL),
+(45, 8, NULL, 18, 0, 0, NULL);
 
 --
 -- Triggers `Przejscie_Odcinka`
@@ -612,13 +615,13 @@ ALTER TABLE `Pracownik_Referatu_Weryfikacyjnego`
 -- AUTO_INCREMENT for table `Przejscie`
 --
 ALTER TABLE `Przejscie`
-  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `Przejscie_Odcinka`
 --
 ALTER TABLE `Przejscie_Odcinka`
-  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- AUTO_INCREMENT for table `Przodownik`
