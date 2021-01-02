@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Dec 30, 2020 at 07:28 PM
+-- Generation Time: Jan 02, 2021 at 04:57 PM
 -- Server version: 10.4.17-MariaDB
 -- PHP Version: 8.0.0
 
@@ -45,9 +45,9 @@ CREATE TABLE `Odcinek` (
   `PunktPoczatkowy` int(10) NOT NULL,
   `PunktKoncowy` int(10) NOT NULL,
   `Teren` int(10) NOT NULL,
-  `Dlugosc` int(10) NOT NULL,
-  `Punktacja` int(10) NOT NULL,
-  `PunktacjaOdKonca` int(10) DEFAULT NULL
+  `Dlugosc` int(10) UNSIGNED NOT NULL,
+  `Punktacja` int(10) UNSIGNED NOT NULL,
+  `PunktacjaOdKonca` int(10) UNSIGNED DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
@@ -73,7 +73,43 @@ INSERT INTO `Odcinek` (`ID`, `Nazwa`, `PunktPoczatkowy`, `PunktKoncowy`, `Teren`
 (18, 'LM', 12, 13, 1, 25, 12, 12),
 (19, 'MK', 13, 11, 1, 26, 13, 14),
 (20, 'LN', 12, 14, 1, 27, 13, 14),
-(21, 'NA', 14, 1, 1, 28, 10, 12);
+(21, 'NA', 14, 1, 1, 28, 10, 12),
+(23, 'JP2GMD', 1, 14, 1, 2137, 21, 37);
+
+--
+-- Triggers `Odcinek`
+--
+DELIMITER $$
+CREATE TRIGGER `update_max_sum_of_points_for_przejscia` AFTER UPDATE ON `Odcinek` FOR EACH ROW BEGIN
+	DECLARE done INT DEFAULT FALSE;
+    DECLARE zmienione_przejscie INT;
+	DECLARE zmienione_przejscia CURSOR FOR 	SELECT P.ID
+																					FROM Przejscie P
+																						JOIN Przejscie_Odcinka PO ON P.ID=PO.Przejscie
+																						JOIN Odcinek O ON O.ID=PO.Odcinek
+																					WHERE O.ID=OLD.ID;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = true;
+    IF OLD.Punktacja <>NEW.Punktacja OR OLD.PunktacjaOdKonca<>NEW.PunktacjaOdKonca THEN
+        OPEN zmienione_przejscia;
+        read_loop: LOOP
+            FETCH zmienione_przejscia INTO zmienione_przejscie;
+            IF done THEN
+                LEAVE read_loop;
+            END IF;
+            UPDATE Przejscie SET Suma_punktow=(SELECT SUM(YEET.punkty_przyznane) suma_punktow
+            FROM
+            (
+                SELECT IF(Przejscie_Odcinka.Od_konca, Odcinek.PunktacjaOdKonca, Odcinek.Punktacja) punkty_przyznane
+                FROM Przejscie_Odcinka JOIN Odcinek ON Przejscie_Odcinka.Odcinek=Odcinek.ID
+                WHERE Przejscie_Odcinka.Przejscie=zmienione_przejscie
+            ) YEET)
+            WHERE Przejscie.ID=zmienione_przejscie;
+            END LOOP;
+        CLOSE zmienione_przejscia;
+	END IF;
+END
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -86,8 +122,7 @@ CREATE TABLE `Odznaka` (
   `Stopien` int(10) NOT NULL,
   `Pracownik_Referatu_Weryfikacyjnego` int(10) DEFAULT NULL,
   `Data_przyznania` date DEFAULT NULL,
-  `Punkty_zdobyte` int(10) DEFAULT NULL,
-  `Turysta` int(10) DEFAULT NULL,
+  `Turysta` int(10) NOT NULL,
   `Zdobyta` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -95,12 +130,12 @@ CREATE TABLE `Odznaka` (
 -- Dumping data for table `Odznaka`
 --
 
-INSERT INTO `Odznaka` (`ID`, `Stopien`, `Pracownik_Referatu_Weryfikacyjnego`, `Data_przyznania`, `Punkty_zdobyte`, `Turysta`, `Zdobyta`) VALUES
-(1, 4, 1, '2021-01-07', 111, 1, 1),
-(2, 1, 1, '2021-01-18', 132, 1, 1),
-(3, 2, NULL, NULL, 14, 1, 0),
-(4, 4, NULL, NULL, NULL, 3, 0),
-(5, 4, NULL, NULL, NULL, 4, 0);
+INSERT INTO `Odznaka` (`ID`, `Stopien`, `Pracownik_Referatu_Weryfikacyjnego`, `Data_przyznania`, `Turysta`, `Zdobyta`) VALUES
+(1, 4, 1, '2021-01-07', 1, 1),
+(2, 1, 1, '2021-01-18', 1, 1),
+(3, 2, NULL, NULL, 1, 0),
+(4, 4, NULL, NULL, 3, 0),
+(5, 4, NULL, NULL, 4, 0);
 
 -- --------------------------------------------------------
 
@@ -183,7 +218,7 @@ CREATE TABLE `Przejscie` (
   `CzyPrzemierzyl` tinyint(1) NOT NULL,
   `Data_rozpoczecia` date DEFAULT NULL,
   `Data_zakonczenia` date DEFAULT NULL,
-  `Suma_punktow` int(10) DEFAULT NULL
+  `Suma_punktow` int(10) UNSIGNED DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
@@ -193,7 +228,7 @@ CREATE TABLE `Przejscie` (
 INSERT INTO `Przejscie` (`ID`, `Nazwa`, `PunktPoczatkowy`, `Odznaka`, `TurystaPlanujacy`, `CzyPrzemierzyl`, `Data_rozpoczecia`, `Data_zakonczenia`, `Suma_punktow`) VALUES
 (1, 'testowePrzejscie', 1, 1, 1, 1, '2021-01-01', '2021-01-07', 133),
 (2, 'droogiePrzejscie', 1, 2, 1, 1, '2021-01-08', '2021-01-16', 132),
-(3, 'Trzecie', 1, 3, 1, 1, NULL, NULL, 14);
+(3, 'Trzecie', 1, 3, 1, 1, NULL, NULL, 35);
 
 -- --------------------------------------------------------
 
@@ -233,47 +268,12 @@ INSERT INTO `Przejscie_Odcinka` (`ID`, `Odcinek`, `PrzodownikZatwierdzajacy`, `P
 (15, 21, 1, 2, 1, 1, '2021-01-16'),
 (16, 10, 1, 1, 1, 0, '2021-01-07'),
 (17, 10, 1, 1, 1, 0, '2021-01-07'),
-(19, 1, 1, 3, 1, 0, '2021-01-30');
+(19, 1, 1, 3, 1, 0, '2021-01-30'),
+(20, 23, NULL, 3, 0, 0, '2021-01-21');
 
 --
 -- Triggers `Przejscie_Odcinka`
 --
-DELIMITER $$
-CREATE TRIGGER `poprawne_sumy_punktow` AFTER UPDATE ON `Przejscie_Odcinka` FOR EACH ROW IF NEW.Zatwierdzone <> OLD.Zatwierdzone THEN
-		UPDATE Odznaka SET Punkty_zdobyte=
-    (
-        SELECT SUM(PDnia.ZdobytePunktyDanegoDnia)
-        FROM
-        (
-            SELECT
-                IF(SUM(YEET.Punkty_zdobyte)>50, 50, SUM(YEET.Punkty_zdobyte)) ZdobytePunktyDanegoDnia
-            FROM
-                (
-                    SELECT MIN(Przejscie_Odcinka.Data_przejscia) AS data_przejscia,
-                        MIN(IF(Przejscie_Odcinka.Od_konca, Odcinek.PunktacjaOdKonca, Odcinek.Punktacja)) AS Punkty_zdobyte
-                    FROM Odznaka
-                        JOIN Przejscie ON Odznaka.ID=Przejscie.Odznaka
-                        JOIN Przejscie_Odcinka ON Przejscie_Odcinka.Przejscie=Przejscie.ID
-                        JOIN Odcinek ON Odcinek.ID=Przejscie_Odcinka.Odcinek
-                    WHERE Przejscie_Odcinka.Zatwierdzone=true
-                        AND Odznaka.ID=(
-                                          SELECT Przejscie.Odznaka
-                                    			FROM Przejscie JOIN Przejscie_Odcinka ON Przejscie_Odcinka.Przejscie = Przejscie.ID
-                                    			WHERE Przejscie_Odcinka.ID = NEW.ID
-                                  			)
-                    GROUP BY Przejscie_Odcinka.Odcinek, Przejscie_Odcinka.Od_konca
-                ) YEET
-            GROUP BY YEET.data_przejscia
-        ) PDnia
-    )
-    	WHERE Odznaka.ID=(
-                          SELECT Przejscie.Odznaka
-                          FROM Przejscie JOIN Przejscie_Odcinka ON Przejscie_Odcinka.Przejscie = Przejscie.ID
-                          WHERE Przejscie_Odcinka.ID = NEW.ID
-                       );
-    END IF
-$$
-DELIMITER ;
 DELIMITER $$
 CREATE TRIGGER `update_suma_punktow_delete` AFTER DELETE ON `Przejscie_Odcinka` FOR EACH ROW UPDATE Przejscie SET Suma_punktow=(SELECT IFNULL(SUM(YEET.punkty_przyznane),0) suma_punktow
     FROM
@@ -457,6 +457,7 @@ INSERT INTO `Uprawnienie` (`ID`, `Pasmo_gorskie`, `Przodownik`) VALUES
 --
 ALTER TABLE `Odbywanie`
   ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `identifier` (`Przejscie`,`Przodownik`),
   ADD KEY `odbywa` (`Przodownik`),
   ADD KEY `FKOdbywanie642128` (`Przejscie`);
 
@@ -475,6 +476,7 @@ ALTER TABLE `Odcinek`
 --
 ALTER TABLE `Odznaka`
   ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `identifier` (`Stopien`,`Turysta`),
   ADD KEY `przyznaje` (`Pracownik_Referatu_Weryfikacyjnego`),
   ADD KEY `ma_stopien` (`Stopien`),
   ADD KEY `dotyczy` (`Turysta`) USING BTREE;
@@ -505,6 +507,7 @@ ALTER TABLE `Pracownik_Referatu_Weryfikacyjnego`
 --
 ALTER TABLE `Przejscie`
   ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `identifier` (`TurystaPlanujacy`,`Nazwa`),
   ADD KEY `planuje` (`TurystaPlanujacy`),
   ADD KEY `punktowana_do` (`Odznaka`),
   ADD KEY `rozpoczyna` (`PunktPoczatkowy`);
@@ -561,6 +564,7 @@ ALTER TABLE `Turysta`
 --
 ALTER TABLE `Uprawnienie`
   ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `identifier` (`Pasmo_gorskie`,`Przodownik`),
   ADD KEY `FKUprawnieni192656` (`Przodownik`),
   ADD KEY `FKUprawnieni911672` (`Pasmo_gorskie`);
 
@@ -578,7 +582,7 @@ ALTER TABLE `Odbywanie`
 -- AUTO_INCREMENT for table `Odcinek`
 --
 ALTER TABLE `Odcinek`
-  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `Odznaka`
@@ -614,7 +618,7 @@ ALTER TABLE `Przejscie`
 -- AUTO_INCREMENT for table `Przejscie_Odcinka`
 --
 ALTER TABLE `Przejscie_Odcinka`
-  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `ID` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `Przodownik`
